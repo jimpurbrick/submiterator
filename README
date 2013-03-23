@@ -1,6 +1,7 @@
-Hackinabox is both and example app for people wanting to quickly get a Facebook
-web application up and running and a useful app for people at hackathons to 
-pool their facebook data to quickly build a dataset they can use to hack on.
+Hackinabox is both a simple example app for people wanting to quickly get a 
+Facebook web application up and running and a useful app for people at 
+hackathons to pool their facebook data to quickly build a dataset they can 
+use to hack on.
 
 To run Hackinabox first set up a Facebook application at 
 https://developers.facebook.com/apps then follow the instructions for setting 
