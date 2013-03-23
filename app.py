@@ -7,11 +7,18 @@ import redis
 import json
 import os
 
+DEBUG = True if 'DEBUG' in os.environ else False
+FACEBOOK_APP_ID = os.environ['FACEBOOK_APP_ID']
+FACEBOOK_APP_SECRET = os.environ['FACEBOOK_APP_SECRET']
+HACK_NAME = os.environ['HACK_NAME']
+MYREDIS_URL = os.environ['MYREDIS_URL']
+SECRET_KEY = os.environ['SECRET_KEY']
+
 app = Flask(__name__)
 Bootstrap(app)
 csrf(app)
-app.debug = True if 'DEBUG' in os.environ else False
-app.secret_key = os.environ['SECRET_KEY']
+app.debug = DEBUG
+app.secret_key = SECRET_KEY
 oauth = OAuth()
 
 facebook = oauth.remote_app('facebook',
@@ -19,8 +26,8 @@ facebook = oauth.remote_app('facebook',
     request_token_url=None,
     access_token_url='/oauth/access_token',
     authorize_url='https://www.facebook.com/dialog/oauth',
-    consumer_key=os.environ['FACEBOOK_APP_ID'],
-    consumer_secret=os.environ['FACEBOOK_APP_SECRET'],
+    consumer_key=FACEBOOK_APP_ID,
+    consumer_secret=FACEBOOK_APP_SECRET,
     request_token_params={'scope': 
                           'user_likes,user_actions.music,user_actions.video'}
 )
@@ -28,7 +35,7 @@ facebook = oauth.remote_app('facebook',
 
 @app.route('/')
 def index():
-    return render_template("tos.html")
+    return render_template("tos.html", hack_name=HACK_NAME)
 
 
 @app.route('/tos', methods=['POST'])
@@ -53,7 +60,8 @@ def tos():
 def ingress(resp):
 
     if resp is None:
-        return 'Access denied: reason=%s' % request.args['error_message']
+        return render_template("error.html", 
+                               reason=request.args['error_message'])
 
     # Get data from facebook
     session['oauth_token'] = (resp['access_token'], '')
@@ -62,8 +70,8 @@ def ingress(resp):
 
     # Add user data to store
     # TODO(jim): asynchronous ingress in worker
-    store = redis.StrictRedis.from_url(os.environ['MYREDIS_URL'])
-    store.sadd(os.environ['HACK_NAME'], me.data['id'])
+    store = redis.StrictRedis.from_url(MYREDIS_URL)
+    store.sadd(HACK_NAME, me.data['id'])
     store.set(me.data['id'], json.dumps(me.data))
 
     return redirect(request.args['next'])
@@ -71,15 +79,19 @@ def ingress(resp):
 @app.route('/egress')
 def egress():
 
-    store = redis.StrictRedis.from_url(os.environ['MYREDIS_URL'])
+    store = redis.StrictRedis.from_url(MYREDIS_URL)
 
     # Get aggregate data from store
     # TODO(jim): asynchronous aggregation in worker
-    members = store.smembers(os.environ['HACK_NAME'])
+    members = store.smembers(HACK_NAME)
     member_data = store.mget(members) if members else []
     aggregate_data = '[' + ','.join(member_data) + ']'
     
     return Response(aggregate_data, mimetype='application/json') 
+
+@app.route('/thanks')
+def thanks():
+        return render_template("thanks.html", hack_name=HACK_NAME)
 
 
 @facebook.tokengetter
