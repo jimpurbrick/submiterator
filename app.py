@@ -46,7 +46,7 @@ def tos():
         if egress:
             next = url_for('egress', _external=True)
         else:
-            next = url_for('index',_external=True)
+            next = url_for('thanks',_external=True)
         return facebook.authorize(callback=url_for('ingress',
                                                    next=next, _external=True))
     elif egress:
