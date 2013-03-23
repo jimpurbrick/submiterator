@@ -10,6 +10,7 @@ import os
 app = Flask(__name__)
 Bootstrap(app)
 csrf(app)
+app.debug = True if 'DEBUG' in os.environ else False
 app.secret_key = os.environ['SECRET_KEY']
 oauth = OAuth()
 
