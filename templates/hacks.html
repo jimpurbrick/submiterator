@@ -2,8 +2,8 @@
 
 {% block container_content %}
 <div class="container">
-  <div class="form-signin">
-    <h2 class="form-signin-heading">{{ hack_name }} Hack</h2>
+  <div>
+    <h2>{{ hack_name }} Hack</h2>
     <ul>
       {% for hack in hacks %}
       <a href="{{ hack.hack_url }}">{{ hack.hack_name }}</a> by {{ hack.hack_members }}
