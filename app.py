@@ -13,11 +13,12 @@ FACEBOOK_APP_SECRET = os.environ['FACEBOOK_APP_SECRET']
 HACK_NAME = os.environ['HACK_NAME']
 MYREDIS_URL = os.environ['MYREDIS_URL']
 SECRET_KEY = os.environ['SECRET_KEY']
+NAMESPACE = os.environ['NAMESPACE']
 
 app = Flask(__name__)
 Bootstrap(app)
 csrf(app)
-app.debug = DEBUG
+app.debug = True
 app.secret_key = SECRET_KEY
 oauth = OAuth()
 
@@ -28,70 +29,46 @@ facebook = oauth.remote_app('facebook',
     authorize_url='https://www.facebook.com/dialog/oauth',
     consumer_key=FACEBOOK_APP_ID,
     consumer_secret=FACEBOOK_APP_SECRET,
-    request_token_params={'scope': 
-                          'user_likes,user_actions.music,user_actions.video'}
+    request_token_params={'scope': ''}
 )
 
 
 @app.route('/')
 def index():
-    return render_template("tos.html", hack_name=HACK_NAME)
+    store = redis.StrictRedis.from_url(MYREDIS_URL)
+    submitter_ids = store.smembers(NAMESPACE) or ['1']
+    hacks = [json.loads(x) for x in store.mget(submitter_ids) if x]
+    return render_template("hacks.html", hacks=hacks, hack_name=HACK_NAME)
 
 
-@app.route('/tos', methods=['POST'])
-def tos():
-    ingress = 'ingress' in request.form and request.form['ingress'] == 'on'
-    egress = 'egress' in request.form and request.form['egress'] == 'on'
-    if ingress:
-        if egress:
-            next = url_for('egress', _external=True)
-        else:
-            next = url_for('thanks',_external=True)
-        return facebook.authorize(callback=url_for('ingress',
-                                                   next=next, _external=True))
-    elif egress:
-        return redirect(url_for('egress'))
-    else:
-        return redirect(url_for('index'))
+@app.route('/login')
+def login():
+    return facebook.authorize(callback=url_for('form', _external=True))
 
 
-@app.route('/ingress')
+@app.route('/form')
 @facebook.authorized_handler
-def ingress(resp):
+def form(resp):
 
     if resp is None:
         return render_template("error.html", 
                                reason=request.args['error_message'])
 
-    # Get data from facebook
     session['oauth_token'] = (resp['access_token'], '')
-    me = facebook.get(
-        'me/?fields=name,likes,music.listens,video.watches,fitness.runs')
+    return render_template("hack.html", hack_name=HACK_NAME)
 
-    # Add user data to store
-    # TODO(jim): asynchronous ingress in worker
-    store = redis.StrictRedis.from_url(MYREDIS_URL)
-    store.sadd(HACK_NAME, me.data['id'])
-    store.set(me.data['id'], json.dumps(me.data))
+@app.route('/submit', methods=['POST'])
+def submit():
 
-    return redirect(request.args['next'])
-
-@app.route('/egress')
-def egress():
+    me = facebook.get('me/?fields=name,id')
 
     store = redis.StrictRedis.from_url(MYREDIS_URL)
+    store.sadd(NAMESPACE, me.data['id'])
+    store.set(me.data['id'], json.dumps({'hack_name': request.form['hack_name'],
+                                         'hack_url': request.form['hack_url'],
+                                         'submittor_name': me.data['name']}))
 
-    # Get aggregate data from store
-    # TODO(jim): asynchronous aggregation in worker
-    members = store.smembers(HACK_NAME)
-    member_data = store.mget(members) if members else []
-    aggregate_data = '[' + ','.join(member_data) + ']'
-    
-    return Response(aggregate_data, mimetype='application/json') 
-
-@app.route('/thanks')
-def thanks():
-        return render_template("thanks.html", hack_name=HACK_NAME)
+    return redirect(url_for('index'))
 
 
 @facebook.tokengetter
