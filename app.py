@@ -32,43 +32,62 @@ facebook = oauth.remote_app('facebook',
     request_token_params={'scope': ''}
 )
 
-
 @app.route('/')
 def index():
-    store = redis.StrictRedis.from_url(REDISCLOUD_URL)
-    submitter_ids = store.smembers(NAMESPACE) or ['1']
-    hacks = [json.loads(x) for x in store.mget(submitter_ids) if x]
-    return render_template("hacks.html", hacks=hacks, hack_name=HACK_NAME)
-
+    return redirect(url_for('login'))
 
 @app.route('/login')
 def login():
-    return facebook.authorize(callback=url_for('form', _external=True))
+    return facebook.authorize(callback=url_for('authorized',
+        next=request.args.get('next') or request.referrer or None,
+        _external=True))
 
+@app.route('/authorized')
+@facebook.authorized_handler
+def authorized(resp):
+    # TODO: handle resp is None...
+    session['oauth_token'] = (resp['access_token'], '')
+    return redirect(url_for('list')) # TODO: use next for redirect
+
+@app.route('/list')
+def list():
+
+    me = facebook.get('me/?fields=id')
+    print me.data
+    store = redis.StrictRedis.from_url(REDISCLOUD_URL)
+    print NAMESPACE
+    submitter_ids = store.smembers(NAMESPACE) or ['1']
+    print submitter_ids
+    hacks = [json.loads(x) for x in store.mget(submitter_ids) if x]
+    print hacks
+    return render_template("hacks.html", hacks=hacks, hack_name=HACK_NAME, me=me.data['id'])
 
 @app.route('/form')
-@facebook.authorized_handler
-def form(resp):
+def form():
 
-    if resp is None:
-        return render_template("error.html", 
-                               reason=request.args['error_message'])
-
-    session['oauth_token'] = (resp['access_token'], '')
     return render_template("hack.html", hack_name=HACK_NAME)
 
 @app.route('/submit', methods=['POST'])
 def submit():
 
-    me = facebook.get('me/?fields=name,id')
-
+    me = facebook.get('me/?fields=id')
     store = redis.StrictRedis.from_url(REDISCLOUD_URL)
     store.sadd(NAMESPACE, me.data['id'])
-    store.set(me.data['id'], json.dumps({'hack_name': request.form['hack_name'],
-                                         'hack_url': request.form['hack_url'],
-                                         'submittor_name': me.data['name']}))
+    hack = json.dumps({'hack_name': request.form['hack_name'],
+                       'hack_url': request.form['hack_url'],
+                       'hack_members': request.form['hack_members'],
+                       'hack_submitter': me.data['id']}) # TODO: avoid this
+    print hack
+    store.set(me.data['id'], hack)
+    return redirect(url_for('list'))
 
-    return redirect(url_for('index'))
+@app.route('/delete', methods=['POST'])
+def delete():
+
+    me = facebook.get('me/?fields=id')
+    store = redis.StrictRedis.from_url(REDISCLOUD_URL)
+    store.delete(me.data['id'])
+    return redirect(url_for('list'))
 
 
 @facebook.tokengetter
