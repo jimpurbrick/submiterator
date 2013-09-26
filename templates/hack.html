@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block container_content %}
+<div class="container">
+  <form class="form-signin" method="post" action="/submit">
+    <h2 class="form-signin-heading">{{ hack_name }} Hack</h2>
+    <input type="text" class="input-block-level" placeholder="Hack name" name="hack_name">
+    <input type="text" class="input-block-level" placeholder="URL" name="hack_url">
+    <button name="action_save" type="submit" class="btn btn-large btn-primary">Submit Hack</button>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  </form>
+</div>
+{% endblock %}
