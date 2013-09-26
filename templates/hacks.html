@@ -6,6 +6,7 @@
     <h2>{{ hack_name }} Hack</h2>
     <ul>
       {% for hack in hacks %}
+      <li>
       <a href="{{ hack.hack_url }}">{{ hack.hack_name }}</a> by {{ hack.hack_members }}
       {% if hack.hack_submitter == me %}
       <form method="post" action="/delete" style="display:inline;">
@@ -15,6 +16,7 @@
       {% endif %}
       </span>
       {% endfor %}
+      </li>
     </ul>
     <a href="/form"><button class="btn btn-primary">Submit Hack</button></a>
   </div>
