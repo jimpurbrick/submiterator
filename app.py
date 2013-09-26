@@ -11,7 +11,7 @@ DEBUG = True if 'DEBUG' in os.environ else False
 FACEBOOK_APP_ID = os.environ['FACEBOOK_APP_ID']
 FACEBOOK_APP_SECRET = os.environ['FACEBOOK_APP_SECRET']
 HACK_NAME = os.environ['HACK_NAME']
-MYREDIS_URL = os.environ['MYREDIS_URL']
+REDISCLOUD_URL = os.environ['REDISCLOUD_URL']
 SECRET_KEY = os.environ['SECRET_KEY']
 NAMESPACE = os.environ['NAMESPACE']
 
@@ -35,7 +35,7 @@ facebook = oauth.remote_app('facebook',
 
 @app.route('/')
 def index():
-    store = redis.StrictRedis.from_url(MYREDIS_URL)
+    store = redis.StrictRedis.from_url(REDISCLOUD_URL)
     submitter_ids = store.smembers(NAMESPACE) or ['1']
     hacks = [json.loads(x) for x in store.mget(submitter_ids) if x]
     return render_template("hacks.html", hacks=hacks, hack_name=HACK_NAME)
@@ -62,7 +62,7 @@ def submit():
 
     me = facebook.get('me/?fields=name,id')
 
-    store = redis.StrictRedis.from_url(MYREDIS_URL)
+    store = redis.StrictRedis.from_url(REDISCLOUD_URL)
     store.sadd(NAMESPACE, me.data['id'])
     store.set(me.data['id'], json.dumps({'hack_name': request.form['hack_name'],
                                          'hack_url': request.form['hack_url'],
